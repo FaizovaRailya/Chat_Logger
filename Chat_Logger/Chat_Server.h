@@ -12,7 +12,7 @@ class Chat_Server {
 	std::vector<User> UserSpisok;				 //список зарегистрированных пользователей
 	std::vector<Message> messageList;			 //создаем вектор, который хранит сообщения в чате
 	std::shared_ptr<User> currentUsers = nullptr; //указатель указывает на текущего пользователя
-
+Logger log;
 	Socket_server sock;
 	Mysql_Chat db;
 
@@ -38,7 +38,7 @@ public:
 	void setAddMessage();							  //добавление сообщений
 	void log_writer(Message& _msg);
 	void log_reader();
-	Logger _log;
+	
 };
 
 

@@ -1,21 +1,26 @@
 #include <iostream>
 #include<string>
-#include "Chat_Server.h"
-#include "Sha1.h"
+#include <thread>
 #include <ctime>
 #include <chrono>
+//#include <exception>
+//#include <sstream>
+#include "Chat_Server.h"
+#include "Sha1.h"
+
 #pragma warning(disable : 4996)
 
 
 void Chat_Server::Menu() {
 	bool f = true;
 	while (f) {
-		sock.send_data((char*)"------Введите действие:------\n1 - вход\n2 - регистрация\n0 - выход\n");
+		sock.send_data((char*)"\n------Введите действие:------\n1 - вход\n2 - регистрация\n3 - чтение последней записи журнала\n0 - выход\n");
 		sock.send_data((char*)"end_receive");
 		char* choise = sock.receive_data();
 		switch (choise[0]) {
 		case '1':
 			SignIn();			//вход по логину и паролю
+			log.toLog("Пользователь вышел");
 			break;
 		case '2':				// регистрация нового пользователя
 			try {
@@ -25,6 +30,10 @@ void Chat_Server::Menu() {
 				std::cout << e.what() << std::endl;
 			}
 			break;
+		case '3': {
+			std::thread read(&Chat_Server::log_reader, this);
+			read.join();
+			break; }
 		case '0':
 			sock.send_data((char*)"Exit");
 			sock.send_data((char*)"end_chat");
@@ -48,7 +57,7 @@ void Chat_Server::SignIn() {					//вход по логину и паролю
 	sock.send_data((char*)"Пароль: ");
 	sock.send_data((char*)"end_receive");
 	pas = sock.receive_data();
-
+	
 	if (UserSearch(log, pas)) {
 		bool f1 = true;
 		while (f1) {
@@ -64,7 +73,9 @@ void Chat_Server::SignIn() {					//вход по логину и паролю
 				setAddMessage();
 				break;
 			case '0':				//назад
+				
 				f1 = false;
+				
 				break;
 			default:
 				sock.send_data((char*)"Неверный ВВОД!\n");
@@ -72,7 +83,8 @@ void Chat_Server::SignIn() {					//вход по логину и паролю
 			}
 		}
 	}
-	else
+	
+	else 
 		sock.send_data((char*)"\nНеверный логин или пароль!!!\n");
 }
 
@@ -106,10 +118,12 @@ bool Chat_Server::FindLogin(const std::string& login) {								//метод проверки 
 
 	if (db.res = mysql_store_result(&db.mysql)) {
 		if (mysql_num_rows(db.res) == 0)
+			mysql_close(&db.mysql);
 			return false;
 	}
-	return true;
 	mysql_close(&db.mysql);
+	return true;
+	
 }
 
 void Chat_Server::NewUser() {					//метод создания нового пользователя
@@ -123,6 +137,7 @@ void Chat_Server::NewUser() {					//метод создания нового пользователя
 		std::cout << name << std::endl;
 		if (name == "all")
 			sock.send_data((char*)"Данное имя уже занято выберите другое!\nВведите имя: ");
+
 		else n = false;
 	}
 	bool l = true;
@@ -156,6 +171,8 @@ void Chat_Server::NewUser() {					//метод создания нового пользователя
 	sock.send_data((char*)"Пользователь зарегистрирован!\n\n");
 
 	mysql_close(&db.mysql);
+	log.toLog("Создан новый пользователь");
+	
 }
 
 bool Chat_Server::UserSearch(const std::string& login, const std::string& password) {	//метод поиска пользователя по логину и паролю	
@@ -179,13 +196,14 @@ bool Chat_Server::UserSearch(const std::string& login, const std::string& passwo
 					id_currentUser = db.row[0]; // id текущего пользователя
 					sock.send_data((char*)"\nПользователь: ");
 					sock.send_data((char*)currentUser);
+					mysql_close(&db.mysql);	
 					return true;
 				}
 			}
 		}
 	}
-	return false;
 	mysql_close(&db.mysql);
+	return false;
 }
 
 void Chat_Server::PrintNamesUsers() {				    //метод получения списка зарегестрированных пользователей
@@ -207,12 +225,15 @@ bool Chat_Server::FindUserinUserSpisok(std::string& name) {	//метод проверяет ко
 	std::string n("SELECT name FROM user_spisok WHERE name = \"" + name + "\"");
 	mysql_query(&db.mysql, n.c_str()); //Делаем запрос к таблице
 	if (db.res = mysql_store_result(&db.mysql)) {
-		if (mysql_num_rows(db.res) == 0)
+		if (mysql_num_rows(db.res) == 0) {
+			mysql_close(&db.mysql);
 			return false;
-		else
+		}
+		else {
+			mysql_close(&db.mysql);
 			return true;
+		}		
 	}
-	mysql_close(&db.mysql);
 }
 
 void Chat_Server::setUnreadPrivateShowChat() {			//метод чтения непрочитанных личных сообщений
@@ -345,15 +366,20 @@ void Chat_Server::setAddMessage() {						    	//метод добавления сообщения в БД
 			}
 			std::string mes("INSERT INTO message(id, id_from_name, id_to_name, data, status, text) VALUES (default, \"" + id_from + "\", \"" + id_to + "\", \"" + mbstr + "\", '0', \"" + text + "\")");
 			mysql_query(&db.mysql, mes.c_str()); //Делаем запрос к таблице	
-			messageList.push_back(Message(currentUser, inputName, text, timestamp));
+			Message msg(currentUser, inputName, text, timestamp);
+			/*std::thread f(log_writer(), msg);
+			f.join();*/
+			log.write_log(msg);
+			messageList.push_back(msg);
+			
 		}
 		mysql_close(&db.mysql);
 	}
 }
 void Chat_Server::log_writer(Message& _msg){
-	_log.write_log(_msg);
+	log.write_log(_msg);
 }
 void Chat_Server::log_reader(){
-	sock.send_data((char*)_log.read_log().data());
+	sock.send_data((char*)log.read_log().data());
 }
 
