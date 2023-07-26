@@ -8,7 +8,7 @@
 #include <shared_mutex>
 
 class Logger {
-	std::shared_mutex shared_mutex; //мьютекс для защиты записи в файл 
+	std::shared_mutex shared_mutex;
 	std::fstream logfile;
 public:
 	Logger();
