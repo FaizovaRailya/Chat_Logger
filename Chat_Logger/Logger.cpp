@@ -5,19 +5,19 @@
 #pragma warning(disable : 4996)
 
 Logger::Logger() {
-    //предполагаем что файл существует
+    //РїСЂРµРґРїРѕР»Р°РіР°РµРј С‡С‚Рѕ С„Р°Р№Р» СЃСѓС‰РµСЃС‚РІСѓРµС‚
     logfile.open("log.txt", std::ios::in | std::ios::out);
     if (!logfile) {
-        //создаём файл
+        //СЃРѕР·РґР°С‘Рј С„Р°Р№Р»
         logfile = std::fstream("log.txt", std::ios::in | std::ios::out | std::ios::trunc);
-        std::cout << "Создан файл журнала" << std::endl;
+        std::cout << "РЎРѕР·РґР°РЅ С„Р°Р№Р» Р¶СѓСЂРЅР°Р»Р°" << std::endl;
     }
     if (logfile) {
-        std::cout << "Файл журнала уже создан" << std::endl;
+        std::cout << "Р¤Р°Р№Р» Р¶СѓСЂРЅР°Р»Р° СѓР¶Рµ СЃРѕР·РґР°РЅ" << std::endl;
         logfile.seekg(0, std::ios_base::end);
     }
     else {
-        std::cout << "Не удалось создать или открыть файл log.txt !" << std::endl;
+        std::cout << "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РёР»Рё РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р» log.txt !" << std::endl;
     }
 }
 
@@ -38,13 +38,21 @@ void Logger::write_log(Message& _msg) {
     logfile << "(";
     logfile << time_str;
     logfile << ") ";
-    logfile << " от: ";
+    logfile << " РѕС‚: ";
     logfile << _msg.getFromMessage();
-    logfile << " кому: ";
+    logfile << " РєРѕРјСѓ: ";
     logfile << _msg.getToMessage();
-    logfile << " текст: ";
+    logfile << " С‚РµРєСЃС‚: ";
     logfile << _msg.getText();
     logfile << std::endl;
+    shared_mutex.unlock();
+}
+
+void Logger::toLog(const std::string& text) {
+    shared_mutex.lock();
+    std::fstream out("log.txt", std::ios::app);
+    if (out.is_open())
+        out << text << std::endl;
     shared_mutex.unlock();
 }
 
@@ -76,28 +84,4 @@ std::string Logger::read_log() {
         shared_mutex.unlock_shared();
         return last_str;
     }
-}
-
-void Logger::toLog(const std::string& text) {
-    shared_mutex.lock();
-    std::fstream out("log.txt", std::ios::app);
-    if (out.is_open())
-        out << text << std::endl;
-    shared_mutex.unlock();
-}
-
-std::string Logger::fromLog() {
-    shared_mutex.lock();
-    std::fstream in("log.txt");
-    std::string text;
-    std::string word;
-    std::getline(in, word);
-    while (word != "") {
-        word.clear();
-        std::getline(in, word);
-        text = text + word + '\n';
-        std::ios::app - '\n';
-    }
-    shared_mutex.unlock();
-    return text;
 }
